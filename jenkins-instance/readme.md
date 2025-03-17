@@ -87,7 +87,6 @@
 5.  **초기 비밀번호 확인**: VM 인스턴스에 SSH로 접속하여 `/var/lib/jenkins/secrets/initialAdminPassword` 파일에서 초기 비밀번호를 확인합니다.
 
     ```bash
-    gcloud compute ssh jenkins-server --zone=<ZONE>
     sudo cat /var/lib/jenkins/secrets/initialAdminPassword
     ```
 
