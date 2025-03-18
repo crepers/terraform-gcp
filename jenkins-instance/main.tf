@@ -31,6 +31,19 @@ resource "google_project_iam_member" "jenkins_sa_compute_networkadmin" {
   member  = "serviceAccount:${google_service_account.jenkins_sa.email}"
 }
 
+resource "google_project_iam_member" "jenkins_sa_artifact_registry_writer" {
+  project = var.project_id
+  role    = "roles/artifactregistry.writer"
+  member  = "serviceAccount:${google_service_account.jenkins_sa.email}"
+}
+
+resource "google_artifact_registry_repository" "docker_repo" {
+  location      = var.region
+  repository_id = "jenkins-docker-repo"
+  description   = "Docker repository"
+  format        = "DOCKER"
+}
+
 resource "google_compute_network" "vpc_network" {
   name                    = "jenkins-vpc"
   auto_create_subnetworks = true
@@ -85,5 +98,32 @@ resource "google_compute_instance" "jenkins_server" {
     sudo apt-get install -y jenkins
     sudo systemctl enable jenkins
     sudo systemctl start jenkins
+
+    # Python 설치
+    sudo apt-get install -y python3 python3-pip python3-venv
+
+    # Git 설치
+    sudo apt-get install -y git
+
+    # Add Docker's official GPG key:
+    sudo apt-get update
+    sudo apt-get install ca-certificates curl
+    sudo install -m 0755 -d /etc/apt/keyrings
+    sudo curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
+    sudo chmod a+r /etc/apt/keyrings/docker.asc
+
+    # Add the repository to Apt sources:
+    echo \
+      "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian \
+      $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+      sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+    sudo apt-get update
+
+    # Install the Docker packages.
+    sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+    sudo chmod 666 /var/run/docker.sock
+
+    sudo usermod -aG docker jenkins
+    sudo systemctl restart docker
   EOF
 }

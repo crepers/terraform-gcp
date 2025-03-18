@@ -1,0 +1,30 @@
+pipeline {
+    agent any
+    environment {
+        PROJECT_ID = '<YOUR_PROJECT_ID>'
+        REGION = '<YOUR_ARTIFACT_REGISTRY_REGION>'
+        ARTIFACT_REGISTRY = '<YOUR_ARTIFACT_REGISTRY_ID>'
+        IMAGE_NAME = '<YOUR_IMAGE_NAME>'
+        IMAGE_TAG = "${BUILD_NUMBER}"
+        GIT_TOKEN = credentials('git-token')
+    }
+    stages {
+        stage('Git Checkout') {
+            steps {
+               git branch: 'main', url: "https://${GIT_TOKEN}@github.com/crepers/gcp-run-helloworld.git"
+            }
+        }
+        stage('Build') {
+            steps {
+                sh 'pip install -r requirements.txt'
+                sh 'docker build -t ${REGION}-docker.pkg.dev/${PROJECT_ID}/${ARTIFACT_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} .'
+            }
+        }
+        stage('Push to Artifact Registry') {
+            steps {
+                sh 'gcloud auth configure-docker us-central1-docker.pkg.dev'
+                sh 'docker push ${REGION}-docker.pkg.dev/${PROJECT_ID}/${ARTIFACT_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}'
+            }
+        }
+    }
+}
