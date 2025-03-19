@@ -52,6 +52,12 @@
     }
     ```
 
+3. Container Analysis API 활성화
+```
+gcloud services enable containeranalysis.googleapis.com 
+gcloud services enable ondemandscanning.googleapis.com
+```
+
 ## 배포
 
 1.  **Terraform 초기화**: 다음 명령어를 실행하여 필요한 provider를 다운로드합니다.

@@ -31,9 +31,33 @@ resource "google_project_iam_member" "jenkins_sa_compute_networkadmin" {
   member  = "serviceAccount:${google_service_account.jenkins_sa.email}"
 }
 
+resource "google_project_iam_member" "jenkins_sa_artifact_registry_reader" {
+  project = var.project_id
+  role    = "roles/artifactregistry.reader"
+  member  = "serviceAccount:${google_service_account.jenkins_sa.email}"
+}
+
 resource "google_project_iam_member" "jenkins_sa_artifact_registry_writer" {
   project = var.project_id
   role    = "roles/artifactregistry.writer"
+  member  = "serviceAccount:${google_service_account.jenkins_sa.email}"
+}
+
+resource "google_project_iam_member" "jenkins_sa_containeranalysis_admin" {
+  project = var.project_id
+  role    = "roles/containeranalysis.admin"
+  member  = "serviceAccount:${google_service_account.jenkins_sa.email}"
+}
+
+resource "google_project_iam_member" "jenkins_sa_containeranalysis_viewer" {
+  project = var.project_id
+  role    = "roles/containeranalysis.occurrences.viewer"
+  member  = "serviceAccount:${google_service_account.jenkins_sa.email}"
+}
+
+resource "google_project_iam_member" "ondemandscanning_service_admin" {
+  project = var.project_id
+  role    = "roles/ondemandscanning.admin"
   member  = "serviceAccount:${google_service_account.jenkins_sa.email}"
 }
 
@@ -42,6 +66,13 @@ resource "google_artifact_registry_repository" "docker_repo" {
   repository_id = "jenkins-docker-repo"
   description   = "Docker repository"
   format        = "DOCKER"
+  # virtual_repository_config {
+  #   upstream_policies {
+  #     id          = "my-repository-upstream-1"
+  #     repository  = google_artifact_registry_repository.docker_repo.id
+  #     priority    = 10
+  #   }
+  # }
 }
 
 resource "google_compute_network" "vpc_network" {
@@ -91,13 +122,17 @@ resource "google_compute_instance" "jenkins_server" {
   metadata_startup_script = <<-EOF
     #!/bin/bash
     sudo apt-get update
-    sudo apt-get install -y openjdk-11-jdk
+    sudo apt-get install -y openjdk-17-jdk
+    
     curl -fsSL https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key | sudo tee /usr/share/keyrings/jenkins-keyring.asc > /dev/null
     echo deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] https://pkg.jenkins.io/debian-stable binary/ | sudo tee /etc/apt/sources.list.d/jenkins.list > /dev/null
     sudo apt-get update
     sudo apt-get install -y jenkins
     sudo systemctl enable jenkins
     sudo systemctl start jenkins
+
+    # Google cli
+    sudo apt-get install google-cloud-cli-local-extract
 
     # Python 설치
     sudo apt-get install -y python3 python3-pip python3-venv

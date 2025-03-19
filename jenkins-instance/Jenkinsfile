@@ -11,13 +11,37 @@ pipeline {
     stages {
         stage('Git Checkout') {
             steps {
-               git branch: 'main', url: "https://${GIT_TOKEN}@github.com/crepers/gcp-run-helloworld.git"
+               git branch: '<YOUR_BRANCH_NAME>', url: "https://${GIT_TOKEN}@github.com/<YOUR_GITHUB_REPOSITORY_URL>"
             }
         }
         stage('Build') {
             steps {
                 sh 'pip install -r requirements.txt'
                 sh 'docker build -t ${REGION}-docker.pkg.dev/${PROJECT_ID}/${ARTIFACT_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} .'
+            }
+        }
+        stage('Vulnerability Scan') {
+            steps {
+                script {
+                    def scanId = sh(script: "gcloud artifacts docker images scan ${REGION}-docker.pkg.dev/${PROJECT_ID}/${ARTIFACT_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} --location us --format='value(response.scan)'", returnStdout: true).trim()
+                    def vulnerabilitiesJson = sh(script: "gcloud artifacts docker images list-vulnerabilities ${scanId} --location us --format='json'", returnStdout: true).trim()
+                    def vulnerabilities = readJSON text: vulnerabilitiesJson
+                    if (vulnerabilities.size() > 0) {
+                        echo 'Vulnerabilities found:'
+                        for (def vulnerability in vulnerabilities) {
+                            echo "  - Severity: ${vulnerability.vulnerability.effectiveSeverity}"
+                            echo "    Package: ${vulnerability.vulnerability.package}"
+                            echo "    Version: ${vulnerability.vulnerability.installedVersion}"
+                            echo "    Description: ${vulnerability.vulnerability.shortDescription}"
+                            echo "    Link: ${vulnerability.vulnerability.relatedUrls[0].url}"
+                        }
+                        if (vulnerabilities.any { it.vulnerability.effectiveSeverity == 'CRITICAL' }) {
+                            error('Critical vulnerabilities found in image.')
+                        }
+                    } else {
+                        echo 'No vulnerabilities found.'
+                    }
+                }
             }
         }
         stage('Push to Artifact Registry') {
